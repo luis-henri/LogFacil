@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <img class="logfacil" src="./assets/logosvg.svg" alt="logo LogFácil">
     <TelaRequisicoes 
       :requisicoes="requisicoes"
       :loading="isLoading"
