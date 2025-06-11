@@ -1,99 +1,116 @@
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-interface DadosDistribuicao {
-  almoxarifesSelecionados: string[];
-  isUrgente: boolean;
-  observacao: string;
-  formaDeEntrega: string | null;
-}
-
-export default defineComponent({
-  name: 'PopUp',
-  
-  // Define os eventos que este componente pode emitir
-  emits: ['fechar', 'confirmar'],
-
-  data() {
-    return {
-      // Dados de exemplo para os campos do formulário
-      almoxarifesDisponiveis: ['Hugo', 'José', 'Leonardo', 'Janet', 'Lu'] as string[],
-      formasDeEntrega: ['SETRANS', 'Correios', 'Portador'] as string[],
-      
-      // Estado interno para os campos do formulário
-      dados: {
-        almoxarifesSelecionados: [],
-        isUrgente: false,
-        observacao: '',
-        formaDeEntrega: null,
-      } as DadosDistribuicao,
-    };
-  },
-
-  methods: {
-    cancelar(): void {
-      // Emite o evento 'fechar' para o componente pai
-      this.$emit('fechar');
-    },
-    confirmar(): void {
-      // Emite o evento 'confirmar' com os dados do formulário como payload
-      this.$emit('confirmar', this.dados);
-    },
-  },
-});
-</script>
-
-
 <template>
-  <div class="popup-backdrop" @click.self="cancelar">
-    <div class="popup-container">
-      <header class="popup-header">
-        <h2>Distribuir Requisições</h2>
-        <button class="close-button" @click="cancelar">&times;</button>
-      </header>
-      <main class="popup-content">
-        <div class="form-group">
-          <label class="form-label">Almoxarifes</label>
-          <div class="checkbox-group">
-            <div v-for="almoxarife in almoxarifesDisponiveis" :key="almoxarife">
-              <input type="checkbox" :id="almoxarife" :value="almoxarife" v-model="dados.almoxarifesSelecionados">
-              <label :for="almoxarife">{{ almoxarife }}</label>
+  <div v-if="visible" class="popup-overlay" @click.self="handleOverlayClick">
+    <div class="popup-content">
+      <div class="popup-header">
+        <h3>Distribuir Requisições</h3>
+        <button @click="closePopup" class="close-button" aria-label="Fechar popup">&times;</button>
+      </div>
+      <div class="popup-body">
+        <div class="form-section">
+          <label class="section-label">Almoxarifes:</label>
+          <div class="radio-group">
+            <div v-for="almoxarife in almoxarifes" :key="almoxarife" class="radio-item">
+              <input type="radio" :id="'almox-' + almoxarife" :value="almoxarife" v-model="formData.almoxarifeSelecionado">
+              <label :for="'almox-' + almoxarife">{{ almoxarife }}</label>
             </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <div class="single-checkbox">
-            <input type="checkbox" id="urgente" v-model="dados.isUrgente">
+        <div class="form-section">
+          <div class="checkbox-item">
+            <input type="checkbox" id="urgente" v-model="formData.urgente">
             <label for="urgente">Urgente</label>
           </div>
         </div>
-        
-        <div class="form-group">
-          <label for="observacao" class="form-label">Observação</label>
-          <textarea id="observacao" v-model="dados.observacao" rows="3" class="form-textarea"></textarea>
+
+        <div class="form-section">
+          <label for="observacao" class="section-label">Observação:</label>
+          <textarea id="observacao" v-model="formData.observacao" rows="3" placeholder="Digite uma observação..."></textarea>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Forma de entrega</label>
+        <div class="form-section">
+          <label class="section-label">Forma de entrega:</label>
           <div class="radio-group">
-            <div v-for="forma in formasDeEntrega" :key="forma">
-              <input type="radio" :id="forma" :value="forma" v-model="dados.formaDeEntrega">
-              <label :for="forma">{{ forma }}</label>
+            <div v-for="forma in formasEntrega" :key="forma" class="radio-item">
+              <input type="radio" :id="'forma-' + forma" :value="forma" v-model="formData.formaEntregaSelecionada">
+              <label :for="'forma-' + forma">{{ forma }}</label>
             </div>
           </div>
         </div>
-      </main>
-      <footer class="popup-footer">
-        <button class="button-secondary" @click="cancelar">Cancelar</button>
-        <button class="button-primary" @click="confirmar">Confirmar Distribuição</button>
-      </footer>
+      </div>
+      <div class="popup-actions">
+        <button @click="handleSubmit" class="button-primary">Confirmar</button>
+        <button @click="closePopup" class="button-secondary">Cancelar</button>
+      </div>
     </div>
   </div>
 </template>
 
+<script lang="ts">
+import { defineComponent } from 'vue';
+import type { DadosDistribuicao } from '../interfaces/IRequisicoes';
+
+export default defineComponent({
+  name: 'PopUp',
+  props: {
+    visible: {
+      type: Boolean,
+      required: true,
+    }
+  },
+  emits: ['close', 'submit'],
+  data() {
+    return {
+      formData: {
+        almoxarifeSelecionado: null,
+        urgente: false,
+        observacao: '',
+        formaEntregaSelecionada: null,
+      } as DadosDistribuicao,
+      almoxarifes: ['Hugo', 'José', 'Leonardo', 'Janet', 'Lu'],
+      formasEntrega: ['SETRANS', 'Correios', 'Portador'],
+    };
+  },
+  methods: {
+    closePopup() {
+      this.$emit('close');
+    },
+    handleOverlayClick() {
+      this.closePopup();
+    },
+    handleSubmit() {
+      if (!this.formData.almoxarifeSelecionado) {
+        alert('Por favor, selecione um almoxarife.');
+        return;
+      }
+      if (!this.formData.formaEntregaSelecionada) {
+        alert('Por favor, selecione uma forma de entrega.');
+        return;
+      }
+      this.$emit('submit', { ...this.formData });
+      this.closePopup();
+    },
+    resetForm() {
+      this.formData = {
+        almoxarifeSelecionado: null,
+        urgente: false,
+        observacao: '',
+        formaEntregaSelecionada: null,
+      };
+    }
+  },
+  watch: {
+    visible(newValue) {
+      if (newValue) {
+        this.resetForm();
+      }
+    }
+  }
+});
+</script>
+
 <style scoped>
-.popup-backdrop {
+.popup-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -104,113 +121,133 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 15px;
 }
-
-.popup-container {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  width: 90%;
+.popup-content {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  width: 100%;
   max-width: 500px;
   display: flex;
   flex-direction: column;
+  gap: 20px;
+  animation: fadeInScale 0.3s ease-out;
 }
-
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
 .popup-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
 }
-
-.popup-header h2 {
+.popup-header h3 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.4em;
+  color: #333;
 }
-
 .close-button {
   background: none;
   border: none;
-  font-size: 2rem;
-  line-height: 1;
+  font-size: 1.8em;
+  color: #888;
   cursor: pointer;
-  color: #6c757d;
+  padding: 0 5px;
 }
-
-.popup-content {
-  padding: 24px;
+.close-button:hover {
+  color: #333;
+}
+.popup-body {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-
-.form-group .form-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #212529;
-}
-
-.checkbox-group, .radio-group {
+.form-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
-
-.checkbox-group > div, .radio-group > div, .single-checkbox {
+.section-label {
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 5px;
+}
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+.radio-item, .checkbox-item {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
-.form-textarea {
+.radio-item input[type="radio"], .checkbox-item input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #007bff;
+}
+.radio-item label, .checkbox-item label {
+  color: #444;
+  cursor: pointer;
+  font-size: 0.95em;
+}
+textarea {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
   font-family: inherit;
+  font-size: 0.95em;
   resize: vertical;
 }
-
-.popup-footer {
+textarea:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+.popup-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e9ecef;
-  background-color: #f9fafb;
+  gap: 15px;
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+  margin-top: 10px;
 }
-
 .button-primary, .button-secondary {
-  border: none;
   padding: 10px 20px;
+  border: none;
   border-radius: 5px;
-  font-size: 1rem;
-  font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.3s, box-shadow 0.3s;
+  font-size: 1em;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
 }
-
 .button-primary {
-  background-color: #3498db;
+  background-color: #007bff;
   color: white;
 }
 .button-primary:hover {
-  background-color: #2980b9;
+  background-color: #0056b3;
 }
-
 .button-secondary {
-  background-color: #ecf0f1;
-  color: #2c3e50;
-  border: 1px solid #bdc3c7;
+  background-color: #6c757d;
+  color: white;
 }
 .button-secondary:hover {
-  background-color: #e0e6e8;
+  background-color: #545b62;
 }
-
-/* Custom checkbox and radio styles */
-input[type="checkbox"], input[type="radio"] {
-  margin-right: 5px;
+@media (max-width: 600px) {
+  .popup-content { padding: 20px; gap: 15px; }
+  .popup-header h3 { font-size: 1.2em; }
+  .popup-actions { flex-direction: column; }
+  .button-primary, .button-secondary { width: 100%; }
 }
 </style>

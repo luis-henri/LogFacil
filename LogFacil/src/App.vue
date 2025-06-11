@@ -1,7 +1,8 @@
 <template>
-  <div id="app">
-    <img class="logfacil" src="./assets/logosvg.svg" alt="logo LogFácil">
+  <div id="app-container">
+    <TelaLogin v-if="!isLoggedIn" @login-success="handleLogin" />
     <TelaRequisicoes 
+      v-else
       :requisicoes="requisicoes"
       :loading="isLoading"
       @distribuir="handleDistribuicaoConfirmada"
@@ -11,22 +12,42 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
+import TelaLogin from './components/TelaLogin.vue';
 import TelaRequisicoes from './components/TelaRequisicoes.vue';
-import { obterCategoria } from './http/index'; // Usando sua função de API
-import type { IRequisicoes, DadosDistribuicao } from './interfaces/IRequisicoes'; // Usando sua interface
+import { obterCategoria } from './http/index';
+import type { IRequisicoes, DadosDistribuicao } from './interfaces/IRequisicoes';
 
 export default defineComponent({
   name: 'App',
   components: {
+    TelaLogin,
     TelaRequisicoes,
   },
   data() {
     return {
+      isLoggedIn: false as boolean,
       requisicoes: [] as IRequisicoes[],
       isLoading: false as boolean,
     };
   },
   methods: {
+    handleLogin() {
+      console.log('Login bem-sucedido! Carregando requisições...');
+      this.isLoggedIn = true;
+      this.carregarRequisicoes();
+    },
+    async carregarRequisicoes() {
+      this.isLoading = true;
+      try {
+        const dadosApi = await obterCategoria();
+        // Adiciona a propriedade 'checked' a cada requisição que vem da API
+        this.requisicoes = dadosApi.map(req => ({ ...req, checked: false }));
+      } catch (error) {
+        console.error("Falha ao buscar requisições:", error);
+      } finally {
+        this.isLoading = false;
+      }
+    },
     handleDistribuicaoConfirmada(payload: { ids: number[], dadosPopup: DadosDistribuicao }) {
       console.log('Distribuição confirmada no App.vue!');
       console.log('IDs a serem removidos:', payload.ids);
@@ -36,33 +57,24 @@ export default defineComponent({
         req => !payload.ids.includes(req.id)
       );
     }
-  },
-  async created() {
-    this.isLoading = true;
-    try {
-      this.requisicoes = await obterCategoria();
-    } catch (error) {
-      console.error("Falha ao buscar requisições:", error);
-    } finally {
-      this.isLoading = false;
-    }
   }
 });
 </script>
 
 <style>
+/* Estilos globais para o corpo da página */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f0f2f5;
   margin: 0;
-  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f0f2f5;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   min-height: 100vh;
 }
-#app {
+#app-container {
   width: 100%;
-  max-width: 1200px;
+  padding: 20px;
+  box-sizing: border-box;
 }
 </style>
