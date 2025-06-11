@@ -1,69 +1,68 @@
 <template>
-  <div class="card-container">
-    <div v-if="showNotification" class="notification-bar">
-      {{ notificationMessage }}
-    </div>
-
-    <header class="card-header">
-      <h1 class="title">Requisições</h1>
+  <div class="requisitions-container">
+    <div class="caption-container">
+      <caption>Requisições</caption>
       <button 
-        class="distribute-button"
-        :disabled="isDistribuirDisabled"
-        @click="abrirPopup"
+        @click="openDistribuirPopup" 
+        :disabled="!hasSelectedRequisitions" 
+        class="distribuir-button"
+        title="Distribuir requisições selecionadas"
       >
         Distribuir
       </button>
-    </header>
-    <div class="table-wrapper">
-      <table class="requests-table">
-        <thead>
-          <tr>
-            <th><input type="checkbox" @change="selecionarTodas" v-model="todasSelecionadas" /></th>
-            <th>Data/Hora</th>
-            <th>UR</th>
-            <th>Número</th>
-            <th>Situação</th>
-            <th>Observação</th>
-          </tr>
-        </thead>
-        <tbody v-if="!loading">
-          <!-- CORREÇÃO AQUI: troquei 'categoria' por 'req' -->
-          <tr 
-            v-for="req in requisicoes" 
-            :key="req.id" 
-            :class="{ 'row-selected': requisicoesSelecionadasIds.includes(req.id) }"
-          >
-            <td><input type="checkbox" :value="req.id" v-model="requisicoesSelecionadasIds" /></td>
-            <td>{{ req.dataHora }}</td>
-            <td>{{ req.ur }}</td>
-            <td>{{ req.numero }}</td>
-            <td><span class="status-tag">{{ req.situacao }}</span></td>
-            <td>{{ req.observacao }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-if="loading" class="state-message">Carregando requisições...</div>
-      <div v-if="!loading && requisicoes.length === 0" class="state-message">Nenhuma requisição pendente.</div>
     </div>
-  </div>
+    <table>
+      <thead>
+        <tr>
+          <th>
+            <input type="checkbox" v-model="allSelected" @change="toggleSelectAll" title="Selecionar todos" />
+          </th>
+          <th>Data/Hora</th>
+          <th>UR</th>
+          <th>Número</th>
+          <th>Situação</th>
+          <th>Observação</th>
+        </tr>
+      </thead>
+      <tbody v-if="!loading">
+        <tr v-for="req in internalRequisicoes" :key="req.id" :class="{ 'row-checked': req.checked }" @click="toggleRowSelection(req)">
+          <td>
+            <input type="checkbox" v-model="req.checked" @click.stop />
+          </td>
+          <td>{{ req.dataHora }}</td>
+          <td>{{ req.ur }}</td>
+          <td>{{ req.numero }}</td>
+          <td>
+            <span :class="['status-badge', getStatusClass(req.situacao)]">
+              {{ req.situacao }}
+            </span>
+          </td>
+          <td>{{ req.observacao || '-' }}</td>
+        </tr>
+        <tr v-if="internalRequisicoes.length === 0">
+          <td colspan="6" class="no-data-message">Nenhuma requisição encontrada.</td>
+        </tr>
+      </tbody>
+    </table>
+     <div v-if="loading" class="loading-message">Carregando requisições...</div>
 
-  <PopUp 
-    v-if="mostrarPopup" 
-    @fechar="fecharPopup"
-    @confirmar="handleDistribuicao"
-  />
+    <PopUp
+      :visible="showDistribuirPopup"
+      @close="closeDistribuirPopup"
+      @submit="handleDistribuirSubmit"
+    />
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
-import PopUp from './PopUp.vue';
-// CORREÇÃO: Importando os tipos do novo local
+import PopUp from './PopUp.vue'; // Renomeado para PopUp
 import type { IRequisicoes, DadosDistribuicao } from '../interfaces/IRequisicoes';
 
 export default defineComponent({
   name: 'TelaRequisicoes',
   components: {
-    PopUp,
+    PopUp
   },
   props: {
     requisicoes: {
@@ -76,156 +75,180 @@ export default defineComponent({
     }
   },
   emits: ['distribuir'],
-
   data() {
     return {
-      requisicoesSelecionadasIds: [] as number[],
-      mostrarPopup: false as boolean,
-      todasSelecionadas: false as boolean,
-      showNotification: false as boolean,
-      notificationMessage: '' as string,
+      showDistribuirPopup: false,
+      // Criamos uma cópia interna para podermos adicionar a propriedade 'checked'
+      internalRequisicoes: [] as IRequisicoes[]
     };
   },
-
   computed: {
-    isDistribuirDisabled(): boolean {
-      return this.requisicoesSelecionadasIds.length === 0 || this.loading;
+    selectedRequisitions(): IRequisicoes[] {
+      return this.internalRequisicoes.filter(item => item.checked);
     },
-  },
-
-  methods: {
-    abrirPopup(): void {
-      this.mostrarPopup = true;
+    hasSelectedRequisitions(): boolean {
+      return this.selectedRequisitions.length > 0;
     },
-    fecharPopup(): void {
-      this.mostrarPopup = false;
-    },
-    handleDistribuicao(dadosDoPopup: DadosDistribuicao): void {
-      this.$emit('distribuir', { 
-        ids: this.requisicoesSelecionadasIds,
-        dadosPopup: dadosDoPopup
-      });
-
-      this.fecharPopup();
-      this.triggerNotification('Requisições distribuídas com sucesso!');
-    },
-    triggerNotification(message: string): void {
-      this.notificationMessage = message;
-      this.showNotification = true;
-      setTimeout(() => {
-        this.showNotification = false;
-      }, 3000);
-    },
-    selecionarTodas(): void {
-      if (this.todasSelecionadas) {
-        this.requisicoesSelecionadasIds = this.requisicoes.map(r => r.id);
-      } else {
-        this.requisicoesSelecionadasIds = [];
+    allSelected: {
+      get(): boolean {
+        return this.internalRequisicoes.length > 0 && this.internalRequisicoes.every(item => item.checked);
+      },
+      set(value: boolean) {
+        this.internalRequisicoes.forEach(item => item.checked = value);
       }
     }
   },
-
-  watch: {
-    requisicoesSelecionadasIds() {
-      if (this.requisicoes && this.requisicoes.length > 0) {
-        this.todasSelecionadas = this.requisicoesSelecionadasIds.length === this.requisicoes.length;
+  methods: {
+    toggleSelectAll(event: Event) {
+      const target = event.target as HTMLInputElement;
+      this.internalRequisicoes.forEach(item => item.checked = target.checked);
+    },
+    toggleRowSelection(req: IRequisicoes) {
+      req.checked = !req.checked;
+    },
+    getStatusClass(situacao: string): string {
+      if (!situacao) return '';
+      return `status-${situacao.toLowerCase().replace(/\s+/g, '-')}`;
+    },
+    openDistribuirPopup() {
+      if (this.hasSelectedRequisitions) {
+        this.showDistribuirPopup = true;
       } else {
-        this.todasSelecionadas = false;
+        alert("Por favor, selecione pelo menos uma requisição para distribuir.");
       }
     },
-    requisicoes() {
-      this.requisicoesSelecionadasIds = [];
+    closeDistribuirPopup() {
+      this.showDistribuirPopup = false;
+    },
+    handleDistribuirSubmit(popupData: DadosDistribuicao) {
+      console.log('Dados do Popup para distribuição:', popupData);
+      console.log('Requisições selecionadas:', this.selectedRequisitions);
+
+      this.$emit('distribuir', {
+        ids: this.selectedRequisitions.map(r => r.id),
+        dadosPopup: popupData
+      });
+
+      alert('Requisições selecionadas foram enviadas para distribuição!');
+    }
+  },
+  watch: {
+    // Quando a prop 'requisicoes' (vinda do App.vue) muda, atualizamos nossa cópia interna.
+    requisicoes: {
+      handler(newVal) {
+        this.internalRequisicoes = newVal.map(req => ({ ...req, checked: false }));
+      },
+      immediate: true, // Executa o handler imediatamente na criação do componente
+      deep: true // Necessário para observar mudanças dentro do array
     }
   }
 });
 </script>
-<style scoped>
-.card-container {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  overflow: hidden;
-}
 
-.card-header {
+<style scoped>
+.requisitions-container {
+  width: 100%;
+  overflow-x: auto;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+.caption-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  background-color: #2c3e50;
-  color: white;
+  margin-bottom: 15px;
 }
-
-.title {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-.distribute-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s, opacity 0.3s;
-}
-
-.distribute-button:hover {
-  background-color: #2980b9;
-}
-
-.distribute-button:disabled {
-  background-color: #bdc3c7;
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.table-wrapper {
-  overflow-x: auto;
-}
-
-.requests-table {
+.requisitions-container table {
   width: 100%;
   border-collapse: collapse;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
 }
-
-.requests-table th,
-.requests-table td {
-  padding: 12px 24px;
+.requisitions-container caption {
+  font-weight: bold;
+  font-size: 1.5em;
+  color: #333;
   text-align: left;
-  border-bottom: 1px solid #ecf0f1;
-  transition: background-color 0.2s;
 }
-
-.requests-table th {
-  background-color: #f9fafb;
-  font-weight: 600;
-  color: #34495e;
-}
-
-.requests-table tbody tr:hover {
-  background-color: #f5f7fa;
-}
-
-/* Estilos para a linha selecionada */
-.requests-table tbody tr.row-selected {
-  background-color: #eaf2f8; /* Um azul bem claro */
+.distribuir-button {
+  padding: 8px 18px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
   font-weight: 500;
+  transition: background-color 0.2s ease;
 }
-
-.requests-table tbody tr.row-selected:hover {
-  background-color: #d4e6f1; /* Um azul um pouco mais escuro para o hover */
+.distribuir-button:hover {
+  background-color: #0056b3;
 }
-
-.status-tag {
-    background-color: #eafaf1;
-    color: #2ecc71;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 500;
+.distribuir-button:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+}
+.requisitions-container thead {
+  background-color: #f8f9fa;
+}
+.requisitions-container th,
+.requisitions-container td {
+  border: 1px solid #e9ecef;
+  padding: 12px 15px;
+  text-align: left;
+  vertical-align: middle;
+}
+.requisitions-container th {
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+.requisitions-container th input[type="checkbox"],
+.requisitions-container td input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #007bff;
+  vertical-align: middle;
+}
+.requisitions-container tbody tr {
+  cursor: pointer; 
+}
+.requisitions-container tbody tr:nth-of-type(even) {
+  background-color: #fcfdff;
+}
+.requisitions-container tbody tr:hover {
+  background-color: #eef2f7;
+}
+.requisitions-container .row-checked {
+  background-color: #e6f2ff !important;
+}
+.requisitions-container .status-badge {
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: #fff;
+  text-transform: capitalize;
+  min-width: 80px;
+  text-align: center;
+  display: inline-block;
+}
+.requisitions-container .status-recebida { background-color: #28a745; }
+.requisitions-container .status-em-análise,
+.requisitions-container .status-em-analise { background-color: #ffc107; color: #212529; }
+.requisitions-container .status-aprovada { background-color: #007bff; }
+.requisitions-container .status-cancelada { background-color: #dc3545; }
+.requisitions-container .status-pendente { background-color: #6c757d; }
+.no-data-message, .loading-message {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+  font-style: italic;
 }
 </style>
