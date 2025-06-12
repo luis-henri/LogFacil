@@ -1,10 +1,11 @@
 <template>
   <div class="requisitions-container">
     <div class="caption-container">
-      <caption>Requisições</caption>
-      <button 
-        @click="openDistribuirPopup" 
-        :disabled="!hasSelectedRequisitions" 
+      <!-- CORREÇÃO: Troca de `<caption>` por `<h2>` para ser semanticamente correto -->
+      <h2 class="container-title">Requisições</h2>
+      <button
+        @click="openDistribuirPopup"
+        :disabled="!hasSelectedRequisitions"
         class="distribuir-button"
         title="Distribuir requisições selecionadas"
       >
@@ -44,7 +45,7 @@
         </tr>
       </tbody>
     </table>
-     <div v-if="loading" class="loading-message">Carregando requisições...</div>
+    <div v-if="loading" class="loading-message">Carregando requisições...</div>
 
     <PopUp
       :visible="showDistribuirPopup"
@@ -56,7 +57,7 @@
 
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
-import PopUp from './PopUp.vue'; // Renomeado para PopUp
+import PopUp from './PopUp.vue';
 import type { IRequisicoes, DadosDistribuicao } from '../interfaces/IRequisicoes';
 
 export default defineComponent({
@@ -78,7 +79,6 @@ export default defineComponent({
   data() {
     return {
       showDistribuirPopup: false,
-      // Criamos uma cópia interna para podermos adicionar a propriedade 'checked'
       internalRequisicoes: [] as IRequisicoes[]
     };
   },
@@ -123,23 +123,20 @@ export default defineComponent({
     handleDistribuirSubmit(popupData: DadosDistribuicao) {
       console.log('Dados do Popup para distribuição:', popupData);
       console.log('Requisições selecionadas:', this.selectedRequisitions);
-
       this.$emit('distribuir', {
         ids: this.selectedRequisitions.map(r => r.id),
         dadosPopup: popupData
       });
-
       alert('Requisições selecionadas foram enviadas para distribuição!');
     }
   },
   watch: {
-    // Quando a prop 'requisicoes' (vinda do App.vue) muda, atualizamos nossa cópia interna.
     requisicoes: {
-      handler(newVal) {
+      handler(newVal: IRequisicoes[]) {
         this.internalRequisicoes = newVal.map(req => ({ ...req, checked: false }));
       },
-      immediate: true, // Executa o handler imediatamente na criação do componente
-      deep: true // Necessário para observar mudanças dentro do array
+      immediate: true,
+      deep: true
     }
   }
 });
@@ -167,11 +164,13 @@ export default defineComponent({
   font-size: 0.9rem;
   letter-spacing: 0.5px;
 }
-.requisitions-container caption {
+/* CORREÇÃO: Estilizando o h2 em vez do caption */
+.container-title {
   font-weight: bold;
   font-size: 1.5em;
   color: #333;
   text-align: left;
+  margin: 0;
 }
 .distribuir-button {
   padding: 8px 18px;
