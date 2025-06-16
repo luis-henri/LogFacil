@@ -5,7 +5,7 @@ export interface IRequisicoes {
   numero: number;
   situacao: string;
   observacao: string;
-  checked?: boolean; // O '?' torna a propriedade opcional
+  checked?: boolean;
 }
 
 export interface DadosDistribuicao {
