@@ -1,9 +1,18 @@
 <template>
   <div id="app-container">
-    <TelaLogin v-if="!isLoggedIn" @login-success="handleLogin" />
-
+    <!-- Renderização condicional baseada no estado -->
+    <TelaLogin 
+      v-if="currentView === 'login'" 
+      @login-success="showRequisicoes" 
+      @create-account="showCadastro"
+    />
+    <TelaCadastro 
+      v-else-if="currentView === 'cadastro'"
+      @cadastro-success="showLogin"
+      @back-to-login="showLogin"
+    />
     <TelaRequisicoes 
-      v-else
+      v-else-if="currentView === 'requisicoes'"
       :requisicoes="requisicoes"
       :loading="isLoading"
       @distribuir="handleDistribuicaoConfirmada"
@@ -11,57 +20,59 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
+import { ref } from 'vue';
 import TelaLogin from './components/TelaLogin.vue';
+import TelaCadastro from './components/TelaCadastro.vue'; // Novo componente
 import TelaRequisicoes from './components/TelaRequisicoes.vue';
 import { obterCategoria } from './http/index';
 import type { IRequisicoes, DadosDistribuicao } from './interfaces/IRequisicoes';
-import TelaCadastro from './components/TelaCadastro.vue';
 
-export default defineComponent({
-  name: 'App',
-  components: {
-    TelaLogin,
-    TelaRequisicoes,
-    TelaCadastro
-  },
-  data() {
-    return {
-      isLoggedIn: false as boolean,
-      requisicoes: [] as IRequisicoes[],
-      isLoading: false as boolean,
-    };
-  },
-  methods: {
-    handleLogin() {
-      console.log('Login bem-sucedido! Carregando requisições...');
-      this.isLoggedIn = true;
-      this.carregarRequisicoes();
-    },
-    async carregarRequisicoes() {
-      this.isLoading = true;
-      try {
-        const dadosApi = await obterCategoria();
-        // Adiciona a propriedade 'checked' a cada requisição que vem da API
-        this.requisicoes = dadosApi.map(req => ({ ...req, checked: false }));
-      } catch (error) {
-        console.error("Falha ao buscar requisições:", error);
-      } finally {
-        this.isLoading = false;
-      }
-    },
-    handleDistribuicaoConfirmada(payload: { ids: number[], dadosPopup: DadosDistribuicao }) {
-      console.log('Distribuição confirmada no App.vue!');
-      console.log('IDs a serem removidos:', payload.ids);
-      console.log('Dados do Popup:', payload.dadosPopup);
-      
-      this.requisicoes = this.requisicoes.filter(
-        req => !payload.ids.includes(req.id)
-      );
-    }
+// --- ESTADO (State) ---
+// Variável que controla qual "página" é mostrada.
+const currentView = ref<'login' | 'cadastro' | 'requisicoes'>('login');
+const requisicoes = ref<IRequisicoes[]>([]);
+const isLoading = ref(false);
+
+// --- AÇÕES (Actions) ---
+async function carregarRequisicoes() {
+  isLoading.value = true;
+  try {
+    const dadosApi = await obterCategoria();
+    requisicoes.value = dadosApi.map(req => ({ ...req, checked: false }));
+  } catch (error) {
+    console.error("Falha ao buscar requisições:", error);
+  } finally {
+    isLoading.value = false;
   }
-});
+}
+
+function handleDistribuicaoConfirmada(payload: { ids: number[], dadosPopup: DadosDistribuicao }) {
+  console.log('Distribuição confirmada no App.vue!');
+  console.log('IDs a serem removidos:', payload.ids);
+  console.log('Dados do Popup:', payload.dadosPopup);
+  
+  requisicoes.value = requisicoes.value.filter(
+    req => !payload.ids.includes(req.id)
+  );
+}
+
+// --- NAVEGAÇÃO ---
+function showRequisicoes() {
+  console.log('Navegando para a tela de requisições...');
+  currentView.value = 'requisicoes';
+  carregarRequisicoes();
+}
+
+function showCadastro() {
+  console.log('Navegando para a tela de cadastro...');
+  currentView.value = 'cadastro';
+}
+
+function showLogin() {
+  console.log('Voltando para a tela de login...');
+  currentView.value = 'login';
+}
 </script>
 
 <style>
