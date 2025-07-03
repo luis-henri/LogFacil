@@ -13,7 +13,7 @@
           required
           />
           <UserCircleIcon class="icon" />
-        </div>
+        </div>  
         <div class="input-group">
           <input
             :type="showPassword ? 'text' : 'password'"
